@@ -5,7 +5,7 @@ dotenv.config();
 const express = require("express");
 const mongoose = require("mongoose");
 const puppeteer = require("puppeteer");
-const Company = require("./models/companies.model");
+const Company = require("./models/company.model");
 
 const app = express();
 
