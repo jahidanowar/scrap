@@ -1,3 +1,4 @@
+const fs = require("fs");
 const dotenv = require("dotenv");
 dotenv.config();
 
@@ -82,16 +83,20 @@ const getKey = (index) => {
   }
 };
 
-const pageStart = 50;
-const scrapeUntil = 150;
+const data = JSON.parse(fs.readFileSync("./data.json"));
+
+const pageStart = data.totalPagesDone;
+const scrapeUntil = data.scrapeUnitl;
+
+console.log("Scraping from page:", pageStart);
 
 let loopCount = 1;
 for (let page = pageStart; page <= scrapeUntil; page++) {
-  setTimeout(
-    () =>
-      scrape(`https://www.zaubacorp.com/company-list/p-${page}-company.html`),
-    loopCount * 5000
-  );
+  setTimeout(() => {
+    scrape(`https://www.zaubacorp.com/company-list/p-${page}-company.html`),
+      (data.totalPagesDone = page);
+    fs.writeFileSync("./data.json", JSON.stringify(data));
+  }, loopCount * 5000);
   loopCount++;
 }
 
