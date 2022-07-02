@@ -1,3 +1,4 @@
+const fs = require("fs");
 const dotenv = require("dotenv");
 dotenv.config();
 const mongoose = require("mongoose");
@@ -210,14 +211,21 @@ async function extractTextFromXPath(page, xpath) {
   }
 })();
 
+const data = JSON.parse(fs.readFileSync("./data.json"));
+
 (async () => {
-  const companies = await company.find({}).limit(10);
+  const companies = await company
+    .find({})
+    .skip(data.singleRecordUpdated)
+    .limit(data.updateUntil);
   let loopCount = 0;
   for (let i = 0; i < companies.length; i++) {
     const company = companies[i];
     // console.log(company.company.link);
     await scrape(company.company.link, company._id);
     loopCount++;
+    data.singleRecordUpdated += 1;
+    fs.writeFileSync("./data.json", JSON.stringify(data));
   }
   //   for (let company of companies) {
   //     setTimeout(async () => {

@@ -86,7 +86,7 @@ const getKey = (index) => {
 const data = JSON.parse(fs.readFileSync("./data.json"));
 
 const pageStart = data.totalPagesDone;
-const scrapeUntil = data.scrapeUnitl;
+const scrapeUntil = data.scrapeUntil;
 
 console.log("Scraping from page:", pageStart);
 
