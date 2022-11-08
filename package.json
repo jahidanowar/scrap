@@ -5,6 +5,7 @@
   "license": "MIT",
   "scripts": {
     "dev": "nodemon index.js",
+    "dev:single": "nodemon scrap_single.js",
     "prod": "node index.js",
     "prod:single": "node scrap_single.js"
   },

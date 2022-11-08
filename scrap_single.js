@@ -5,9 +5,12 @@ const mongoose = require("mongoose");
 const puppeteer = require("puppeteer");
 
 const company = require("./models/company.model");
+const { exit } = require("process");
 
 async function scrape(url, id) {
-  const browser = await puppeteer.launch();
+  const browser = await puppeteer.launch({
+    headless: true,
+  });
   const page = await browser.newPage();
 
   await page.setRequestInterception(true);
@@ -27,7 +30,15 @@ async function scrape(url, id) {
     } else request.continue();
   });
 
-  await page.goto(url);
+  const response = await page.goto(url);
+
+  // if response status is greater than 400 and less than 600, then the page is not found
+  if (response.status() >= 400 && response.status() < 600) {
+    console.log("The page you are trying to access is not available");
+    console.log("Status code: " + response.status());
+    await browser.close();
+    exit(1);
+  }
 
   console.log("Scraping url: " + url);
 
@@ -128,22 +139,23 @@ async function scrape(url, id) {
   const directorsTables = await page.$x(
     `//*[@id="block-system-main"]/div[2]/div[1]/div[7]/table/tbody`
   );
-
+  let directors = [];
   // Extract data from table
-  const directors = await directorsTables[0].$$eval("tr.main-row", (trs) => {
-    return trs.map((tr) => {
-      // select td that dosent have .hidden class
-      const tds = tr.querySelectorAll("td:not(.hiddenRow)");
-      return {
-        din: tds[0].innerText,
-        name: tds[1].innerText,
-        designation: tds[2].innerText,
-        appointment_date: tds[3].innerText,
-      };
+  if (directorsTables.length > 0) {
+    directors = await directorsTables[0].$$eval("tr.main-row", (trs) => {
+      return trs.map((tr) => {
+        // select td that dosent have .hidden class
+        const tds = tr.querySelectorAll("td:not(.hiddenRow)");
+        return {
+          din: tds[0].innerText,
+          name: tds[1].innerText,
+          designation: tds[2].innerText,
+          appointment_date: tds[3].innerText,
+        };
+      });
     });
-  });
-
-  console.log("directors: " + directors);
+    console.log("directors: " + directors);
+  }
 
   //   console.log({
   //     registrationNumber,
@@ -163,24 +175,24 @@ async function scrape(url, id) {
   //   });
 
   try {
-    await company.findByIdAndUpdate(id, {
-      $set: {
-        registrationNumber,
-        category,
-        sub_category,
-        company_class,
-        date_of_incorporation,
-        activity,
-        authorised_capital,
-        paid_up_capital,
-        listing_status,
-        last_anoual_general_meeting,
-        last_balance_sheet,
-        adderess,
-        email,
-        directors,
-      },
-    });
+    const companyData = await company.findById(id);
+    // companyData.slug = slugify(companyData.name);
+    companyData.registrationNumber = registrationNumber;
+    companyData.category = category;
+    companyData.sub_category = sub_category;
+    companyData.company_class = company_class;
+    companyData.date_of_incorporation = date_of_incorporation;
+    companyData.activity = activity;
+    companyData.authorised_capital = authorised_capital;
+    companyData.paid_up_capital = paid_up_capital;
+    companyData.listing_status = listing_status;
+    companyData.last_anoual_general_meeting = last_anoual_general_meeting;
+    companyData.last_balance_sheet = last_balance_sheet;
+    companyData.adderess = adderess;
+    companyData.email = email;
+    companyData.directors = directors;
+    await companyData.save();
+
     console.log("Company updated in database");
   } catch (err) {
     console.log("Unable to store", err);
@@ -214,18 +226,22 @@ async function extractTextFromXPath(page, xpath) {
 const data = JSON.parse(fs.readFileSync("./data.json"));
 
 (async () => {
-  const companies = await company
-    .find({})
-    .skip(data.singleRecordUpdated)
-    .limit(data.updateUntil);
-  let loopCount = 0;
-  for (let i = 0; i < companies.length; i++) {
-    const company = companies[i];
-    // console.log(company.company.link);
-    await scrape(company.company.link, company._id);
-    loopCount++;
-    data.singleRecordUpdated += 1;
-    fs.writeFileSync("./data.json", JSON.stringify(data));
+  try {
+    const companies = await company
+      .find({})
+      .skip(data.singleRecordUpdated)
+      .limit(data.updateUntil);
+    let loopCount = 0;
+    for (let i = 0; i < companies.length; i++) {
+      const company = companies[i];
+      // console.log(company.company.link);
+      await scrape(company.company.link, company._id);
+      loopCount++;
+      data.singleRecordUpdated += 1;
+      fs.writeFileSync("./data.json", JSON.stringify(data));
+    }
+  } catch (err) {
+    console.log(err);
   }
   //   for (let company of companies) {
   //     setTimeout(async () => {
